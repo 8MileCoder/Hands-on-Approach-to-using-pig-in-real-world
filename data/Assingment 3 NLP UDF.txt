@@ -1,0 +1,51 @@
+### Assingment 3 Natural Language Processing, Text Processing
+
+
+Get data from https://www.kaggle.com/zynicide/wine-reviews/data
+From the wine data find the top 5 words used to describe each wine for each country.
+Note: You should write Python UDF/UADF for NLP proceessing.
+
+Solution 3
+
+
+
+REGISTER 'a4.py' USING jython AS nltk_udfs;
+
+winedata =  LOAD 'winedata' 
+         USING PigStorage(',') AS (id:chararray, country:chararray, description:chararray, designation:chararray, points:chararray, price:chararray, province:chararray, region_1:chararray, region_2:chararray, variety:chararray, winery:chararray);
+DESCRIBE winedata;
+-- Group the tweets by place name and use a CPython UDF to find the top 5 bigrams
+-- for each of these places.
+bigrams_by_place = FOREACH (GROUP winedata BY country) GENERATE
+                        group AS country:chararray, 
+                        nltk_udfs.top_5_bigrams(winedata.description), 
+                        COUNT(winedata) AS sample_size;
+
+top_100_places = LIMIT (ORDER bigrams_by_place BY sample_size DESC) 100;
+
+STORE top_100_places INTO 'a4-output';
+
+
+
+
+import sys
+sys.path.append('/usr/local/lib/python2.7/')
+from collections import defaultdict
+import re 
+@outputSchema('word:chararray')
+def special_tokenize(input):
+    #splitting camel-case here
+    temp_data = re.sub(r'(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])'," ",input)
+    tokens = temp_data.encode('utf-8')
+    final_tokens = tokens.split()
+    return final_tokens  
+@outputSchema("top_five:bag{t:(bigram:chararray)}")
+def top_5_bigrams(wines):
+    dict = defaultdict(int)
+    tokenized_wines = [ special_tokenize(t[0]) for t in wines ]
+    for tw in tokenized_wines:
+        for w in tw:
+            dict[w] += 1
+    sd = sorted(dict.items(), key=lambda x: (x[1],x[0]), reverse=True)
+ 
+    return sd[:5]

@@ -1,0 +1,57 @@
+### Assignment 2
+
+Download data from http://stat-computing.org/dataexpo/2009/the-data.html for year 2007
+
+a. Write a Pig script wich imports the data and filters out all the delayed flights.
+b. Write a UDF to find out the hour of departure from the field CRSDepTime
+c. Write a UDF to find out the days from the nearest holiday for the date(Year, Month, DayOfMonth) fields.
+
+Note : treat the following dates as holidays
+    
+holidays = [
+        date(2007, 1, 1), date(2007, 1, 15), date(2007, 2, 19), date(2007, 5, 28), date(2007, 6, 7), date(2007, 7, 4), \
+        date(2007, 9, 3), date(2007, 10, 8), date(2007, 11, 11), date(2007, 11, 22), date(2007, 12, 25)]
+
+
+### Solution
+
+Register 'util.py' USING jython as util;
+-- load airline data from specified year
+airline = load 'delay_2007.csv' using PigStorage(',') 
+    as (Year: int, Month: int, DayOfMonth: int, DayOfWeek: int, DepTime: chararray, 
+        CRSDepTime: chararray, ArrTime, CRSArrTime, Carrier: chararray, FlightNum, TailNum, ActualElapsedTime, 
+        CRSElapsedTime, AirTime, ArrDelay, DepDelay: int, Origin: chararray, Dest: chararray, Distance: int, 
+        TaxiIn, TaxiOut, Cancelled: int, CancellationCode, Diverted, CarrierDelay, WeatherDelay, 
+        NASDelay, SecurityDelay, LateAircraftDelay);
+
+-- keep only instances where flight was not cancelled and originate at ORD
+airline_flt = filter airline by Cancelled == 0 and Origin == '$airport_code';
+
+-- Keep only the needed fields
+$data = foreach airline_flt generate DepDelay as delay, Month, DayOfMonth, DayOfWeek, 
+                                     util.get_hour(CRSDepTime) as hour, Distance, Carrier, Dest,
+                                     util.days_from_nearest_holiday(Year, Month, DayOfMonth) as hdays;
+
+
+
+from datetime import date
+
+                                          
+#### get hour-of-day from HHMM field
+#### more on zfill : https://www.tutorialspoint.com/python/string_zfill.htm
+@outputSchema("value: int")
+def get_hour(val):
+  return int(val.zfill(4)[:2])
+
+                                          
+##### this array defines the dates of holiday in 2007
+holidays = [
+        date(2007, 1, 1), date(2007, 1, 15), date(2007, 2, 19), date(2007, 5, 28), date(2007, 6, 7), date(2007, 7, 4), \
+        date(2007, 9, 3), date(2007, 10, 8), date(2007, 11, 11), date(2007, 11, 22), date(2007, 12, 25)]
+
+#### get number of days from nearest holiday
+@outputSchema("days: int")
+def days_from_nearest_holiday(year, month, day):
+  d = date(year, month, day)
+  x = [(abs(d-h)).days for h in holidays]
+  return min(x)

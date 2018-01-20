@@ -1,0 +1,32 @@
+### Assingment 1
+Take any data set and perform a data shuffle and split the data into two parts (90/10 split for training/testing).
+
+### Solution
+
+a = load 'dataset' using PigStorage(',');
+a = foreach a generate RANDOM(), *;
+
+split a into training if $0 <= 0.9, test if $0 > 0.9;
+
+training = group training all;
+training = foreach training generate flatten($1);
+training = foreach training generate $1 ..;
+
+test = group test all;
+test = foreach test generate flatten($1);
+test = foreach test generate $1 ..;
+
+store training into 'training' using PigStorage(',');
+store test into 'test' using PigStorage(',');
+
+
+Notes 
+Project-Range Expressions
+Project-range ( .. ) expressions can be used to project a range of columns from input. For example:
+
+.. $x : projects columns $0 through $x, inclusive
+
+$x .. : projects columns through end, inclusive
+
+$x .. $y : projects columns through $y, inclusive
+
